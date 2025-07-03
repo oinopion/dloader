@@ -11,6 +11,9 @@ fix:
 test *args:
     uv run pytest {{ args }}
 
+deps-upgrade:
+    uv sync --upgrade
+
 qa: fix lint test
 
 clean:
