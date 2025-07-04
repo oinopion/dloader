@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Hashable, Iterable, Mapping, Sequence
-from typing import Generic, Protocol, TypeVar
+from types import TracebackType
+from typing import Generic, Protocol, Self, TypeVar
 
 __all__ = (
     "DataLoader",
@@ -34,6 +35,7 @@ class DataLoader(Generic[_KeyType, _ResultType]):
         load_fn: LoadFunction[_KeyType, _ResultType],
         max_batch_size: int | None = None,
         cache: bool = True,
+        loop: asyncio.AbstractEventLoop | None = None,
     ) -> None:
         self.load_fn = load_fn
         self.max_batch_size = max_batch_size
@@ -51,11 +53,12 @@ class DataLoader(Generic[_KeyType, _ResultType]):
         # multiple running tasks, each with its own set of keys
         self._running_load_tasks = set[asyncio.Task[None]]()
 
-    def load(self, key: _KeyType) -> asyncio.Future[_ResultType]:
-        loop = asyncio.get_event_loop()
+        self._maybe_loop = loop
+        self._entered = False
 
+    def load(self, key: _KeyType) -> asyncio.Future[_ResultType]:
         if key in self._cache_store:
-            future = loop.create_future()
+            future = self._loop.create_future()
             future.set_result(self._cache_store[key])
             return future
 
@@ -64,7 +67,7 @@ class DataLoader(Generic[_KeyType, _ResultType]):
             return future
 
         self._keys_to_load.append(key)
-        self._pending_results[key] = future = loop.create_future()
+        self._pending_results[key] = future = self._loop.create_future()
         self._ensure_load_task_is_scheduled()
 
         return future
@@ -113,19 +116,15 @@ class DataLoader(Generic[_KeyType, _ResultType]):
                 exceptions.append(e)
 
         if exceptions:
-            return ExceptionGroup(
-                "DataLoader shutdown encountered exceptions",
-                exceptions,
-            )
+            return ExceptionGroup("DataLoader shutdown encountered exceptions", exceptions)
 
     def _ensure_load_task_is_scheduled(self) -> None:
         if self._scheduled_load_task is not None:
             return
 
-        loop = asyncio.get_event_loop()
         coro = self._load_collected_keys()
-        task_name = f"DataLoader({self.load_fn.__qualname__})._load_gathered_keys"
-        self._scheduled_load_task = loop.create_task(coro, name=task_name)
+        task_name = f"DataLoader({self.load_fn.__qualname__})"
+        self._scheduled_load_task = self._loop.create_task(coro, name=task_name)
 
     async def _load_collected_keys(self) -> None:
         # Since we're here, the task is no longer pending, it's running
@@ -188,3 +187,32 @@ class DataLoader(Generic[_KeyType, _ResultType]):
                 future.set_result(result)
                 if self.cache:
                     self._cache_store[key] = result
+
+    async def __aenter__(self) -> Self:
+        if self._entered:
+            raise RuntimeError("DataLoader instance already entered")
+        self._entered = True
+
+        if self._maybe_loop is None:
+            self._maybe_loop = asyncio.get_event_loop()
+
+        return self
+
+    async def __aexit__(
+        self,
+        _exc_type: type[BaseException] | None,
+        _exc_val: BaseException | None,
+        _exc_tb: TracebackType | None,
+    ) -> None:
+        if not self._entered:
+            raise RuntimeError("DataLoader instance has not been entered")
+
+        self._entered = False
+        await self.shutdown()
+
+    @property
+    def _loop(self) -> asyncio.AbstractEventLoop:
+        if self._maybe_loop is None:
+            self._maybe_loop = asyncio.get_running_loop()
+
+        return self._maybe_loop
