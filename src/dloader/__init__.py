@@ -54,7 +54,7 @@ class DataLoader(Generic[_KeyType, _ResultType]):
     def load(self, key: _KeyType) -> asyncio.Future[_ResultType]:
         loop = asyncio.get_event_loop()
 
-        if self.cache and key in self._cache_store:
+        if key in self._cache_store:
             future = loop.create_future()
             future.set_result(self._cache_store[key])
             return future
@@ -82,9 +82,12 @@ class DataLoader(Generic[_KeyType, _ResultType]):
     def clear_all(self) -> None:
         self._cache_store.clear()
 
-    def prime(self, key: _KeyType, value: _ResultType, force: bool = False) -> None: ...
+    def prime(self, key: _KeyType, value: _ResultType) -> None:
+        self._cache_store[key] = value
 
-    def prime_many(self, data: Mapping[_KeyType, _ResultType], force: bool = False) -> None: ...
+    def prime_many(self, data: Mapping[_KeyType, _ResultType]) -> None:
+        for key, value in data.items():
+            self._cache_store[key] = value
 
     async def shutdown(self) -> ExceptionGroup | None:
         cancelled_tasks: list[asyncio.Task[None]] = []
@@ -120,9 +123,9 @@ class DataLoader(Generic[_KeyType, _ResultType]):
             return
 
         loop = asyncio.get_event_loop()
-        coroutine = self._load_collected_keys()
+        coro = self._load_collected_keys()
         task_name = f"DataLoader({self.load_fn.__qualname__})._load_gathered_keys"
-        self._scheduled_load_task = loop.create_task(coroutine, name=task_name)
+        self._scheduled_load_task = loop.create_task(coro, name=task_name)
 
     async def _load_collected_keys(self) -> None:
         # Since we're here, the task is no longer pending, it's running

@@ -189,31 +189,93 @@ async def test_caching_with_concurrent_loads() -> None:
 
     loader = DataLoader(load_fn=load_fn)
 
-    # First batch of concurrent loads
     results = await asyncio.gather(
         loader.load(1),
         loader.load(2),
         loader.load_many([3, 4]),
-        loader.load(1),  # Duplicate
-        loader.load(2),  # Duplicate
+        loader.load(1),
+        loader.load(2),
     )
 
     assert results == ["data-1", "data-2", ["data-3", "data-4"], "data-1", "data-2"]
 
-    # Second batch - mix of cached and new keys
-    results2 = await asyncio.gather(
-        loader.load(1),  # Cached
-        loader.load(5),  # New
-        loader.load_many([2, 3, 6]),  # Mix of cached and new
-        loader.load(5),  # Duplicate in same batch
+    results_2 = await asyncio.gather(
+        loader.load(1),
+        loader.load(5),
+        loader.load_many([2, 3, 6]),
+        loader.load(5),
     )
 
-    assert results2 == ["data-1", "data-5", ["data-2", "data-3", "data-6"], "data-5"]
+    assert results_2 == ["data-1", "data-5", ["data-2", "data-3", "data-6"], "data-5"]
 
-    # Each unique key should only be loaded once
     assert load_counter[1] == 1
     assert load_counter[2] == 1
     assert load_counter[3] == 1
     assert load_counter[4] == 1
     assert load_counter[5] == 1
     assert load_counter[6] == 1
+
+
+async def test_prime_single_key() -> None:
+    batches = list[Sequence[int]]()
+
+    async def load_fn(keys: Sequence[int]) -> Sequence[str]:
+        batches.append(keys)
+        return [f"data-{key}" for key in keys]
+
+    loader = DataLoader(load_fn=load_fn)
+
+    loader.prime(1, "primed-data-1")
+
+    result = await loader.load(1)
+    assert result == "primed-data-1"
+    assert len(batches) == 0
+
+    result_2 = await loader.load(2)
+    assert result_2 == "data-2"
+    assert len(batches) == 1
+    assert batches[0] == [2]
+
+    loader.prime(2, "new-primed-data-2")
+    result_3 = await loader.load(2)
+    assert result_3 == "new-primed-data-2"
+    assert len(batches) == 1
+
+
+async def test_prime_many_keys() -> None:
+    batches = list[Sequence[int]]()
+
+    async def load_fn(keys: Sequence[int]) -> Sequence[str]:
+        batches.append(keys)
+        return [f"data-{key}" for key in keys]
+
+    loader = DataLoader(load_fn=load_fn)
+
+    loader.prime_many(
+        {
+            1: "primed-1",
+            2: "primed-2",
+            3: "primed-3",
+        }
+    )
+
+    results = await loader.load_many([1, 2, 3])
+    assert results == ["primed-1", "primed-2", "primed-3"]
+    assert len(batches) == 0
+
+    results_2 = await loader.load_many([2, 4, 5])
+    assert results_2 == ["primed-2", "data-4", "data-5"]
+    assert len(batches) == 1
+    assert batches[0] == [4, 5]
+
+    loader.prime_many(
+        {
+            4: "new-primed-4",
+            5: "new-primed-5",
+            6: "primed-6",
+        }
+    )
+
+    results_3 = await loader.load_many([4, 5, 6])
+    assert results_3 == ["new-primed-4", "new-primed-5", "primed-6"]
+    assert len(batches) == 1
