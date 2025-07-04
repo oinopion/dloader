@@ -32,3 +32,21 @@ pythonVersion = "3.11"
 
 [tool.ruff]
 line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "F",     # Pyflakes - finds errors like undefined names, unused imports
+    "E",     # pycodestyle errors - essential style violations
+    "I",     # isort - import sorting
+    "UP",    # pyupgrade - modernize Python syntax
+    "FA",    # flake8-future-annotations
+    "B",     # flake8-bugbear - finds likely bugs and design problems
+    "SIM",   # flake8-simplify - suggests simpler code
+    "RUF",   # Ruff-specific rules - additional quality checks
+    "ASYNC", # flake8-asyncio - checks for asyncio-related issues
+    "PERF",  # Perflint - performance-related checks
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["dloader"]

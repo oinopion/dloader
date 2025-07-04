@@ -1,17 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-
-
-from typing import (
-    Sequence,
-    TypeVar,
-    Generic,
-    Hashable,
-    Iterable,
-    Mapping,
-    Protocol,
-)
+from collections.abc import Hashable, Iterable, Mapping, Sequence
+from typing import Generic, Protocol, TypeVar
 
 __all__ = (
     "DataLoader",
@@ -150,7 +141,7 @@ class DataLoader(Generic[_KeyType, _ResultType]):
             if len(results) != len(keys):
                 raise ValueError("Wrong number of results returned by load_fn in DataLoader")
 
-            for key, result in zip(keys, results):
+            for key, result in zip(keys, results, strict=True):
                 self._fulfil_result(key, result)
 
         except (asyncio.CancelledError, Exception) as e:

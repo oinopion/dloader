@@ -5,7 +5,7 @@ lint:
 
 fix:
     uv run ruff format
-    uv run ruff check --fix
+    uv run ruff check --fix --unsafe-fixes
     just --unstable --format
 
 test *args:
@@ -17,7 +17,7 @@ typecheck:
 deps-upgrade:
     uv sync --upgrade
 
-qa: fix lint typecheck test
+qa: fix typecheck test
 
 clean:
     rm -rf .pytest_cache
