@@ -2,12 +2,15 @@ import asyncio
 from collections import Counter
 from collections.abc import Sequence
 
+
 import pytest
 
 from dloader import DataLoader
 
+pytest.mark.asyncio(loop_scope="function")
 
-async def test_basic_serial_loading() -> None:
+
+async def test_basic_serial_loading_returns_loaded_results() -> None:
     async def load_fn(keys: Sequence[int]) -> Sequence[str]:
         return [f"data-{key}" for key in keys]
 
@@ -18,7 +21,7 @@ async def test_basic_serial_loading() -> None:
     assert await loader.load_many([3, 4]) == ["data-3", "data-4"]
 
 
-async def test_basic_batch_loading() -> None:
+async def test_basic_batch_loading_returns_loaded_results() -> None:
     batches = list[Sequence[int]]()
 
     async def load_fn(keys: Sequence[int]) -> Sequence[str]:
@@ -38,37 +41,9 @@ async def test_basic_batch_loading() -> None:
     assert batches[0] == [1, 2, 3, 4]
 
 
-async def test_overlapping_loads() -> None:
-    green_light = asyncio.Event()
-    batches = list[Sequence[int]]()
-
-    async def load_fn(keys: Sequence[int]) -> Sequence[str]:
-        batches.append(keys)
-        await green_light.wait()
-        return [f"data-{key}" for key in keys]
-
-    loader = DataLoader(load_fn=load_fn)
-
-    coro_1 = asyncio.wait_for(loader.load(1), timeout=1)
-    await asyncio.sleep(0)  # Force next loop iteration to allow first load to start
-    assert len(batches) > 0  # Check that the first load has actually started
-    coro_2 = asyncio.wait_for(loader.load(2), timeout=1)
-
-    green_light.set()
-    results = await asyncio.gather(coro_1, coro_2)
-
-    assert results == ["data-1", "data-2"]
-    assert len(batches) == 2
-    assert batches[0] == [1]
-    assert batches[1] == [2]
-
-
 async def test_returned_exceptions_are_set_as_future_exceptions() -> None:
     async def load_fn(keys: Sequence[int]) -> Sequence[str | Exception]:
-        return [
-            f"data-{key}" if key % 2 != 0 else ValueError(f"Error loading key {key}")
-            for key in keys
-        ]
+        return [f"data-{key}" if key % 2 != 0 else ValueError(f"Error loading key {key}") for key in keys]
 
     loader = DataLoader(load_fn=load_fn)
 
@@ -88,8 +63,7 @@ async def test_exception_from_load_fn_is_set_as_future_exception() -> None:
         await loader.load(1)
 
     with pytest.raises(RuntimeError, match=r"Failed load: 2, 3"):
-        a = await loader.load_many([2, 3])
-        assert a == [None, None]
+        await loader.load_many([2, 3])
 
 
 async def test_shutting_down_cancels_all_pending_tasks() -> None:
@@ -173,6 +147,36 @@ async def test_exception_when_load_fn_returns_wrong_number_of_results() -> None:
             loader_many.load(5),
             loader_many.load(6),
         )
+
+
+async def test_loads_are_minimised_under_overlapping_requests() -> None:
+    batches = list[Sequence[int]]()
+    load_started = asyncio.Event()
+    green_light = asyncio.Event()
+
+    async def load_fn(keys: Sequence[int]) -> Sequence[str]:
+        batches.append(keys)
+        load_started.set()
+        await green_light.wait()
+        return [f"data-{key}" for key in keys]
+
+    loader = DataLoader(load_fn=load_fn)
+
+    future_1 = loader.load(1)
+    future_2 = loader.load(2)
+    await load_started.wait()
+
+    future_3 = loader.load(2)
+    future_4 = loader.load(3)
+
+    green_light.set()
+    results = await asyncio.gather(future_1, future_2, future_3, future_4)
+
+    assert results == ["data-1", "data-2", "data-2", "data-3"]
+    assert batches == [
+        [1, 2],
+        [3],
+    ]
 
 
 async def test_caching_with_concurrent_loads() -> None:

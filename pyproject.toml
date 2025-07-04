@@ -29,3 +29,6 @@ include = ["src", "tests"]
 exclude = ["**/__pycache__", "**/.pytest_cache"]
 typeCheckingMode = "strict"
 pythonVersion = "3.11"
+
+[tool.ruff]
+line-length = 120
