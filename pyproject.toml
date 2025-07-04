@@ -23,3 +23,9 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+
+[tool.pyright]
+include = ["src", "tests"]
+exclude = ["**/__pycache__", "**/.pytest_cache"]
+typeCheckingMode = "strict"
+pythonVersion = "3.11"

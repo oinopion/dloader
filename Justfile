@@ -11,10 +11,13 @@ fix:
 test *args:
     uv run pytest {{ args }}
 
+typecheck:
+    uv run pyright
+
 deps-upgrade:
     uv sync --upgrade
 
-qa: fix lint test
+qa: fix lint typecheck test
 
 clean:
     rm -rf .pytest_cache

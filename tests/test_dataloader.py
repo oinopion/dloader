@@ -1,5 +1,6 @@
 import asyncio
 from collections import Counter
+from collections.abc import Sequence
 
 import pytest
 
@@ -7,7 +8,7 @@ from dloader import DataLoader
 
 
 async def test_basic_serial_loading() -> None:
-    async def load_fn(keys: list[int]) -> list[str]:
+    async def load_fn(keys: Sequence[int]) -> Sequence[str]:
         return [f"data-{key}" for key in keys]
 
     loader = DataLoader(load_fn=load_fn)
@@ -18,9 +19,9 @@ async def test_basic_serial_loading() -> None:
 
 
 async def test_basic_batch_loading() -> None:
-    batches = []
+    batches = list[Sequence[int]]()
 
-    async def load_fn(keys: list[int]) -> list[str]:
+    async def load_fn(keys: Sequence[int]) -> Sequence[str]:
         batches.append(keys)
         return [f"data-{key}" for key in keys]
 
@@ -39,9 +40,9 @@ async def test_basic_batch_loading() -> None:
 
 async def test_overlapping_loads() -> None:
     green_light = asyncio.Event()
-    batches = []
+    batches = list[Sequence[int]]()
 
-    async def load_fn(keys: list[int]) -> list[str]:
+    async def load_fn(keys: Sequence[int]) -> Sequence[str]:
         batches.append(keys)
         await green_light.wait()
         return [f"data-{key}" for key in keys]
@@ -63,7 +64,7 @@ async def test_overlapping_loads() -> None:
 
 
 async def test_returned_exceptions_are_set_as_future_exceptions() -> None:
-    async def load_fn(keys: list[int]) -> list[str]:
+    async def load_fn(keys: Sequence[int]) -> Sequence[str | Exception]:
         return [
             f"data-{key}" if key % 2 != 0 else ValueError(f"Error loading key {key}")
             for key in keys
@@ -78,7 +79,7 @@ async def test_returned_exceptions_are_set_as_future_exceptions() -> None:
 
 
 async def test_exception_from_load_fn_is_set_as_future_exception() -> None:
-    async def load_fn(keys: list[int]) -> list[str]:
+    async def load_fn(keys: Sequence[int]) -> Sequence[str]:
         raise RuntimeError(f"Failed load: {', '.join(map(str, keys))}")
 
     loader = DataLoader(load_fn=load_fn)
@@ -94,7 +95,7 @@ async def test_exception_from_load_fn_is_set_as_future_exception() -> None:
 async def test_shutting_down_cancels_all_pending_tasks() -> None:
     load_in_progress = asyncio.Event()
 
-    async def load_fn(keys: list[int]) -> list[str]:
+    async def load_fn(keys: Sequence[int]) -> Sequence[str]:
         load_in_progress.set()
         await asyncio.sleep(10)
         return [f"data-{key}" for key in keys]
@@ -117,9 +118,9 @@ async def test_shutting_down_cancels_all_pending_tasks() -> None:
 
 
 async def test_dataloader_honors_max_batch_size() -> None:
-    batches = []
+    batches = list[Sequence[int]]()
 
-    async def load_fn(keys: list[int]) -> list[str]:
+    async def load_fn(keys: Sequence[int]) -> Sequence[str]:
         batches.append(keys)
         return [f"data-{key}" for key in keys]
 
@@ -149,10 +150,10 @@ async def test_dataloader_honors_max_batch_size() -> None:
 
 
 async def test_exception_when_load_fn_returns_wrong_number_of_results() -> None:
-    async def load_fn_too_few(keys: list[int]) -> list[str]:
+    async def load_fn_too_few(keys: Sequence[int]) -> Sequence[str]:
         return [f"data-{key}" for key in keys[:-1]]
 
-    async def load_fn_too_many(keys: list[int]) -> list[str]:
+    async def load_fn_too_many(keys: Sequence[int]) -> Sequence[str]:
         return [f"data-{key}" for key in keys] + ["extra"]
 
     loader_few = DataLoader(load_fn=load_fn_too_few)
@@ -175,9 +176,9 @@ async def test_exception_when_load_fn_returns_wrong_number_of_results() -> None:
 
 
 async def test_caching_with_concurrent_loads() -> None:
-    load_counter = Counter()
+    load_counter = Counter[int]()
 
-    async def load_fn(keys: list[int]) -> list[str]:
+    async def load_fn(keys: Sequence[int]) -> Sequence[str]:
         load_counter.update(keys)
         return [f"data-{key}" for key in keys]
 

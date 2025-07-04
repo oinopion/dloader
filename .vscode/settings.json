@@ -1,7 +1,11 @@
 {
   "cSpell.words": [
+    "asyncio",
     "coro",
-    "dloader"
+    "dloader",
+    "pycache",
+    "pyright",
+    "uvloop"
   ],
   "python.testing.pytestArgs": [
     "tests"

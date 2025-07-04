@@ -11,28 +11,37 @@ from typing import (
     Hashable,
     Iterable,
     Mapping,
+    Protocol,
 )
 
+__all__ = (
+    "DataLoader",
+    "LoadFunction",
+)
 
-KeyType = TypeVar("KeyType", bound=Hashable)
-ResultType = TypeVar("ResultType")
+_K = TypeVar("_K", bound=Hashable, contravariant=True)
+_V = TypeVar("_V", covariant=True)
 
 
-class LoadFunction(Generic[KeyType, ResultType]):
+class LoadFunction(Protocol, Generic[_K, _V]):
     async def __call__(
         self,
-        keys: Sequence[KeyType],
-    ) -> Sequence[ResultType | Exception]: ...
+        keys: Sequence[_K],
+    ) -> Sequence[_V | Exception]: ...
 
 
-class DataLoader(Generic[KeyType, ResultType]):
-    load_fn: LoadFunction[KeyType, ResultType]
+_KeyType = TypeVar("_KeyType", bound=Hashable)
+_ResultType = TypeVar("_ResultType")
+
+
+class DataLoader(Generic[_KeyType, _ResultType]):
+    load_fn: LoadFunction[_KeyType, _ResultType]
     max_batch_size: int | None
     cache: bool
 
     def __init__(
         self,
-        load_fn: LoadFunction[KeyType, ResultType],
+        load_fn: LoadFunction[_KeyType, _ResultType],
         max_batch_size: int | None = None,
         cache: bool = True,
     ) -> None:
@@ -41,16 +50,16 @@ class DataLoader(Generic[KeyType, ResultType]):
         self.cache = cache
 
         # Keys to load are collected temporarily until the a load task starts
-        self._keys_to_load = dict[KeyType, asyncio.Future[ResultType]]()
+        self._keys_to_load = dict[_KeyType, asyncio.Future[_ResultType]]()
         # Pending means waiting for the loop to pick it up, we keep collecting keys until it does
         self._pending_load_task: asyncio.Task[None] | None = None
         # Running means the loop has picked it up and is currently executing it; there can be
         # multiple running tasks, each with its own set of keys
         self._running_load_tasks = set[asyncio.Task[None]]()
         # Cache storage for completed results
-        self._cache = dict[KeyType, ResultType]()
+        self._cache = dict[_KeyType, _ResultType]()
 
-    def load(self, key: KeyType) -> asyncio.Future[ResultType]:
+    def load(self, key: _KeyType) -> asyncio.Future[_ResultType]:
         loop = asyncio.get_event_loop()
 
         # Check cache first if caching is enabled
@@ -68,28 +77,28 @@ class DataLoader(Generic[KeyType, ResultType]):
 
         return future
 
-    def load_many(self, keys: Iterable[KeyType]) -> asyncio.Future[list[ResultType]]:
+    def load_many(self, keys: Iterable[_KeyType]) -> asyncio.Future[list[_ResultType]]:
         return asyncio.gather(*[self.load(key) for key in keys])
 
-    def clear(self, key: KeyType) -> None:
+    def clear(self, key: _KeyType) -> None:
         if key in self._cache:
             del self._cache[key]
 
-    def clear_many(self, keys: Iterable[KeyType]) -> None:
+    def clear_many(self, keys: Iterable[_KeyType]) -> None:
         for key in keys:
             self.clear(key)
 
     def clear_all(self) -> None:
         self._cache.clear()
 
-    def prime(self, key: KeyType, value: ResultType, force: bool = False) -> None: ...
+    def prime(self, key: _KeyType, value: _ResultType, force: bool = False) -> None: ...
 
     def prime_many(
-        self, data: Mapping[KeyType, ResultType], force: bool = False
+        self, data: Mapping[_KeyType, _ResultType], force: bool = False
     ) -> None: ...
 
     async def shutdown(self) -> ExceptionGroup | None:
-        cancelled_tasks = []
+        cancelled_tasks: list[asyncio.Task[None]] = []
 
         if self._pending_load_task is not None and not self._pending_load_task.done():
             self._pending_load_task.cancel()
@@ -102,7 +111,7 @@ class DataLoader(Generic[KeyType, ResultType]):
                 cancelled_tasks.append(task)
         self._running_load_tasks.clear()
 
-        exceptions = []
+        exceptions: list[Exception] = []
         for task in cancelled_tasks:
             try:
                 await task
@@ -129,6 +138,7 @@ class DataLoader(Generic[KeyType, ResultType]):
     async def _load_collected_keys(self) -> None:
         # Since we're here, the task is no longer pending, it's running
         current_task = self._pending_load_task
+        assert current_task is not None
         self._pending_load_task = None
         self._running_load_tasks.add(current_task)
 
@@ -168,9 +178,10 @@ class DataLoader(Generic[KeyType, ResultType]):
             return
 
         finally:
+            assert current_task is not None
             self._running_load_tasks.discard(current_task)
 
-    def _collect_one_batch(self) -> dict[KeyType, asyncio.Future[ResultType]]:
+    def _collect_one_batch(self) -> dict[_KeyType, asyncio.Future[_ResultType]]:
         if (
             self.max_batch_size is None
             or len(self._keys_to_load) <= self.max_batch_size
@@ -183,7 +194,7 @@ class DataLoader(Generic[KeyType, ResultType]):
         batch_keys = list(
             itertools.islice(self._keys_to_load.keys(), self.max_batch_size)
         )
-        batch = {}
+        batch: dict[_KeyType, asyncio.Future[_ResultType]] = {}
         for key in batch_keys:
             batch[key] = self._keys_to_load.pop(key)
         return batch
