@@ -5,7 +5,8 @@
     "dloader",
     "pycache",
     "pyright",
-    "uvloop"
+    "uvloop",
+    "venv"
   ],
   "python.testing.pytestArgs": [
     "tests"
