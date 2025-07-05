@@ -5,6 +5,7 @@ from collections import Counter
 from collections.abc import Sequence
 
 import pytest
+from cachetools import Cache
 
 from dloader import DataLoader
 
@@ -126,11 +127,34 @@ async def test_dataloader_honors_max_batch_size() -> None:
             ["data-5", "data-6", "data-7"],
         ]
 
-        # Should have been split into 3 batches: [1,2,3], [4,5,6], [7]
-        assert len(batches) == 3
-        assert batches[0] == [1, 2, 3]
-        assert batches[1] == [4, 5, 6]
-        assert batches[2] == [7]
+        assert batches == [
+            [1, 2, 3],
+            [4, 5, 6],
+            [7],
+        ]
+
+
+async def test_using_with_custom_cache_map() -> None:
+    batches = list[Sequence[int]]()
+
+    async def load_fn(keys: Sequence[int]) -> Sequence[str]:
+        batches.append(keys)
+        return [f"data-{key}" for key in keys]
+
+    cache_map = Cache[int, str](maxsize=2)
+    async with DataLoader(load_fn=load_fn, cache=True, cache_map=cache_map) as loader:
+        assert await loader.load_many([1, 2]) == ["data-1", "data-2"]
+        assert list(cache_map.keys()) == [1, 2]
+        assert await loader.load_many([2, 3]) == ["data-2", "data-3"]
+        assert list(cache_map.keys()) == [2, 3]
+        assert await loader.load_many([3, 1]) == ["data-3", "data-1"]
+        assert list(cache_map.keys()) == [3, 1]
+
+        assert batches == [
+            [1, 2],
+            [3],
+            [1],
+        ]
 
 
 async def test_exception_when_load_fn_returns_wrong_number_of_results() -> None:

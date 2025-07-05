@@ -13,6 +13,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "cachetools>=6.1.0",
     "pyright>=1.1.402",
     "pytest>=8.4.1",
     "pytest-asyncio>=1.0.0",

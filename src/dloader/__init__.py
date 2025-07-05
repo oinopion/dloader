@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Hashable, Iterable, Mapping, Sequence
+from collections.abc import Hashable, Iterable, Mapping, MutableMapping, Sequence
 from types import TracebackType
 from typing import Generic, Protocol, Self, TypeVar
 
@@ -94,6 +94,7 @@ class DataLoader(Generic[_KeyType, _ResultType]):
         max_batch_size: int | None = None,
         cache: bool = True,
         loop: asyncio.AbstractEventLoop | None = None,
+        cache_map: MutableMapping[_KeyType, _ResultType] | None = None,
     ) -> None:
         """
         Initialize a DataLoader instance.
@@ -103,30 +104,26 @@ class DataLoader(Generic[_KeyType, _ResultType]):
         :param max_batch_size: Maximum number of keys per batch. Default is None (unlimited).
         :param cache: Whether to cache successful results. Default is True.
         :param loop: Event loop to use. Only needed when calling load() outside an async context.
+        :param cache_map: Custom cache storage to use. If not provided, a plain dict will be used.
         """
         self.load_fn = load_fn
         self.max_batch_size = max_batch_size
         self.cache = cache
-
-        # Cache storage for completed results
-        self._cache_store = dict[_KeyType, _ResultType]()
-
-        # Keys to load are collected temporarily until the a load task starts
-        self._keys_to_load = list[_KeyType]()
-        self._pending_results = dict[_KeyType, asyncio.Future[_ResultType]]()
-        # Pending means waiting for the loop to pick it up, we keep collecting keys until it does
-        self._scheduled_load_task: asyncio.Task[None] | None = None
-        # Running means the loop has picked it up and is currently executing it; there can be
-        # multiple running tasks, each with its own set of keys
-        self._running_load_tasks = set[asyncio.Task[None]]()
-
+        self.cache_map: MutableMapping[_KeyType, _ResultType] = cache_map if cache_map is not None else {}
         self._maybe_loop = loop
-        self._entered = False
+
+        self._keys_to_load: list[_KeyType] = []
+        self._pending_results: dict[_KeyType, asyncio.Future[_ResultType]] = {}
+
+        self._scheduled_load_task: asyncio.Task[None] | None = None
+        self._running_load_tasks: set[asyncio.Task[None]] = set()
+
+        self._entered: bool = False
 
     def load(self, key: _KeyType) -> asyncio.Future[_ResultType]:
-        if key in self._cache_store:
+        if key in self.cache_map:
             future = self._loop.create_future()
-            future.set_result(self._cache_store[key])
+            future.set_result(self.cache_map[key])
             return future
 
         future = self._pending_results.get(key)
@@ -143,21 +140,21 @@ class DataLoader(Generic[_KeyType, _ResultType]):
         return asyncio.gather(*(self.load(key) for key in keys))
 
     def clear(self, key: _KeyType) -> None:
-        self._cache_store.pop(key, None)
+        self.cache_map.pop(key, None)
 
     def clear_many(self, keys: Iterable[_KeyType]) -> None:
         for key in keys:
-            self._cache_store.pop(key, None)
+            self.cache_map.pop(key, None)
 
     def clear_all(self) -> None:
-        self._cache_store.clear()
+        self.cache_map.clear()
 
     def prime(self, key: _KeyType, value: _ResultType) -> None:
-        self._cache_store[key] = value
+        self.cache_map[key] = value
 
     def prime_many(self, data: Mapping[_KeyType, _ResultType]) -> None:
         for key, value in data.items():
-            self._cache_store[key] = value
+            self.cache_map[key] = value
 
     async def shutdown(self) -> ExceptionGroup | None:
         cancelled_tasks: list[asyncio.Task[None]] = []
@@ -219,7 +216,6 @@ class DataLoader(Generic[_KeyType, _ResultType]):
             return
 
         finally:
-            assert current_task is not None
             self._running_load_tasks.discard(current_task)
 
     def _deque_next_keys_batch(self) -> list[_KeyType]:
@@ -253,7 +249,7 @@ class DataLoader(Generic[_KeyType, _ResultType]):
             case _:
                 future.set_result(result)
                 if self.cache:
-                    self._cache_store[key] = result
+                    self.cache_map[key] = result
 
     async def __aenter__(self) -> Self:
         if self._entered:
