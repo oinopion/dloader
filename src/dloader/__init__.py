@@ -261,7 +261,8 @@ class DataLoader(Generic[_KeyType, _ResultType]):
         self._entered = True
 
         if self._maybe_loop is None:
-            self._maybe_loop = asyncio.get_event_loop()
+            # We're in async context so we can opportunistically get the running loop
+            self._maybe_loop = asyncio.get_running_loop()
 
         return self
 
