@@ -15,10 +15,7 @@ _V = TypeVar("_V", covariant=True)
 
 
 class LoadFunction(Protocol, Generic[_K, _V]):
-    async def __call__(
-        self,
-        keys: Sequence[_K],
-    ) -> Sequence[_V | Exception]: ...
+    async def __call__(self, keys: Sequence[_K], /) -> Sequence[_V | Exception]: ...
 
 
 _KeyType = TypeVar("_KeyType", bound=Hashable)
