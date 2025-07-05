@@ -26,6 +26,67 @@ _ResultType = TypeVar("_ResultType")
 
 
 class DataLoader(Generic[_KeyType, _ResultType]):
+    """
+    Batches and caches asynchronous data loading operations.
+
+    Solves the N+1 query problem by collecting multiple load requests and executing them
+    as a single batch operation. Deduplicates requests within a batch and caches results
+    to avoid redundant loads.
+
+    The load function receives a sequence of keys and must return results in the same
+    order. Results can be values or Exception instances which are propagated to the
+    appropriate futures.
+
+    All asyncio tasks are tracked internally and cleaned up during shutdown, preventing
+    task leaks. Use as an async context manager for automatic cleanup or call shutdown()
+    manually.
+
+    Example usage
+    -------------
+
+    >>> _batches = list[Sequence[int]]()
+    >>> async def load_users(user_ids: Sequence[int]) -> Sequence[str]:
+    ...     _batches.append(user_ids)
+    ...     return [f"user_{id}" for id in user_ids]
+    >>>
+    >>> async def example():
+    ...     async with DataLoader(load_users) as loader:
+    ...         results = await asyncio.gather(
+    ...             loader.load(1),
+    ...             loader.load(2),
+    ...             loader.load_many([2, 3]),
+    ...         )
+    ...         return results
+    >>>
+    >>> asyncio.run(example())
+    ['user_1', 'user_2', ['user_2', 'user_3']]
+    >>> _batches # The load function was called only once with deduplicated keys
+    [[1, 2, 3]]
+
+    Caching example:
+
+    >>> _batches = list[Sequence[int]]()
+    >>> async def caching_example():
+    ...     async with DataLoader(load_users) as loader:
+    ...         user_1 = await loader.load(1)
+    ...         user_1_again = await loader.load(1)
+    ...         return [user_1, user_1_again]
+    >>>
+    >>> asyncio.run(caching_example())
+    ['user_1', 'user_1']
+    >>> _batches
+    [[1]]
+
+    How it works
+    ------------
+
+    When you call load() or load_many(), the DataLoader doesn't immediately execute the
+    load function. Instead, it schedules a task for the next event loop iteration,
+    collects keys, and returns a Future immediately. If other load calls are made while
+    the task is pending, their keys are collected and batched together. This works best
+    when load calls are made in parallel through asyncio.gather() or tasks.
+    """
+
     load_fn: LoadFunction[_KeyType, _ResultType]
     max_batch_size: int | None
     cache: bool
@@ -37,6 +98,15 @@ class DataLoader(Generic[_KeyType, _ResultType]):
         cache: bool = True,
         loop: asyncio.AbstractEventLoop | None = None,
     ) -> None:
+        """
+        Initialize a DataLoader instance.
+
+        :param load_fn: Async function that accepts a sequence of keys and returns results
+            in the same order. Results can be values or Exception instances.
+        :param max_batch_size: Maximum number of keys per batch. Default is None (unlimited).
+        :param cache: Whether to cache successful results. Default is True.
+        :param loop: Event loop to use. Only needed when calling load() outside an async context.
+        """
         self.load_fn = load_fn
         self.max_batch_size = max_batch_size
         self.cache = cache

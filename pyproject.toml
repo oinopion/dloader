@@ -23,6 +23,8 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+addopts = "--doctest-modules"
+
 
 [tool.pyright]
 include = ["src", "tests"]
