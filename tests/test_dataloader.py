@@ -306,3 +306,22 @@ async def test_prime_many_keys() -> None:
         results_3 = await loader.load_many([4, 5, 6])
         assert results_3 == ["new-primed-4", "new-primed-5", "primed-6"]
         assert len(batches) == 1
+
+
+async def test_shutdown_with_pending_keys_should_cancel_futures() -> None:
+    batches = list[Sequence[int]]()
+
+    async def load_fn(keys: Sequence[int]) -> Sequence[str]:
+        batches.append(keys)
+        return [f"value_{k}" for k in keys]
+
+    loader = DataLoader(load_fn)
+
+    future_1 = loader.load(1)
+    future_2 = loader.load(2)
+
+    await loader.shutdown()
+
+    assert future_1.cancelled()
+    assert future_2.cancelled()
+    assert len(batches) == 0

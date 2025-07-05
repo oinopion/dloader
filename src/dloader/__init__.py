@@ -84,6 +84,11 @@ class DataLoader(Generic[_KeyType, _ResultType]):
     when load calls are made in parallel through asyncio.gather() or tasks.
     """
 
+    # Invariants maintained between calls and await points:
+    # - If _keys_to_load is non-empty, then _scheduled_load_task exists
+    # - _pending_results contains at least all keys from _keys_to_load
+    # - Running load tasks never have overlapping keys
+
     load_fn: LoadFunction[_KeyType, _ResultType]
     max_batch_size: int | None
     cache: bool
@@ -169,6 +174,12 @@ class DataLoader(Generic[_KeyType, _ResultType]):
                 task.cancel()
                 cancelled_tasks.append(task)
         self._running_load_tasks.clear()
+
+        for future in self._pending_results.values():
+            if not future.done():
+                future.cancel()
+        self._pending_results.clear()
+        self._keys_to_load.clear()
 
         exceptions: list[Exception] = []
         for task in cancelled_tasks:
