@@ -2,8 +2,10 @@
 name = "dloader"
 version = "0.1.0"
 description = "DataLoader implementation for Python asyncio"
-readme = "README.md"
 authors = [{ name = "Tomek Paczkowski", email = "tomek@hauru.eu" }]
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = []
 
