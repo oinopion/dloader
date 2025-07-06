@@ -23,15 +23,21 @@ dev = [
 
 
 [tool.pytest.ini_options]
+addopts = ["--import-mode=importlib", "--doctest-modules"]
+testpaths = ["tests"]
+pythonpath = ["tests"]
 asyncio_mode = "auto"
-addopts = "--doctest-modules"
+asyncio_default_fixture_loop_scope = "function"
+asyncio_default_test_loop_scope = "function"
 
 
 [tool.pyright]
 include = ["src", "tests"]
 exclude = ["**/__pycache__", "**/.pytest_cache"]
+extraPaths = ["tests"]
 typeCheckingMode = "strict"
 pythonVersion = "3.11"
+
 
 [tool.ruff]
 line-length = 120

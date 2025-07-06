@@ -8,9 +8,9 @@
     "uvloop",
     "venv"
   ],
-  "python.testing.pytestArgs": [
-    "tests"
-  ],
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestEnabled": true
+  "python.testing.pytestEnabled": true,
+  "python.autoComplete.extraPaths": [
+    "tests"
+  ]
 }
