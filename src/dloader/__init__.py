@@ -112,6 +112,7 @@ class DataLoader(Generic[_KeyType, _ResultType]):
         :param cache_map: Custom cache storage to use. If not provided, a plain dict will be used.
         """
         self.load_fn = load_fn
+        self._load_fn_name = f"{load_fn.__qualname__}" if hasattr(load_fn, "__qualname__") else f"{load_fn!r}"
         self.max_batch_size = max_batch_size
         self.cache = cache
         self.cache_map: MutableMapping[_KeyType, _ResultType] = cache_map if cache_map is not None else {}
@@ -122,6 +123,7 @@ class DataLoader(Generic[_KeyType, _ResultType]):
 
         self._scheduled_load_task: asyncio.Task[None] | None = None
         self._running_load_tasks: set[asyncio.Task[None]] = set()
+        self._task_counter: int = 0
 
         self._entered: bool = False
 
@@ -197,9 +199,11 @@ class DataLoader(Generic[_KeyType, _ResultType]):
         if self._scheduled_load_task is not None:
             return
 
-        coro = self._load_collected_keys()
-        task_name = f"DataLoader({self.load_fn.__qualname__})"
-        self._scheduled_load_task = self._loop.create_task(coro, name=task_name)
+        self._task_counter += 1
+        self._scheduled_load_task = self._loop.create_task(
+            self._load_collected_keys(),
+            name=f"DataLoader({self._load_fn_name})-{self._task_counter}",
+        )
 
     async def _load_collected_keys(self) -> None:
         # Since we're here, the task is no longer pending, it's running
