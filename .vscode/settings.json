@@ -4,6 +4,7 @@
     "coro",
     "dloader",
     "pycache",
+    "pypi",
     "pyright",
     "uvloop",
     "venv"
