@@ -6,6 +6,7 @@ Don't try to import any other packages, in particular don't import pytest.
 """
 
 import asyncio
+import importlib.metadata
 import sys
 import traceback
 from collections.abc import Sequence
@@ -49,7 +50,8 @@ def test_run_simple_load() -> None:
 if __name__ == "__main__":
     try:
         test_can_import_dloader()
-        print("Package has been successfully imported")
+        version = importlib.metadata.version("dloader")
+        print(f"Package has been successfully imported with version {version}")
         test_run_simple_load()
         print("Simple load has been successfully executed")
 
