@@ -22,7 +22,7 @@ def test_can_import_dloader() -> None:
     try:
         from dloader import DataLoader  # type: ignore # noqa: F401
     except ImportError as e:
-        raise AssertionError("Could not import Dataloader class from dloader package") from e
+        raise AssertionError("Could not import DataLoader class from dloader package") from e
 
 
 def test_run_simple_load() -> None:
@@ -44,7 +44,7 @@ def test_run_simple_load() -> None:
     try:
         asyncio.run(run_load(), debug=True)
     except Exception as e:
-        raise AssertionError("Failed to run a simple load with Dataloader") from e
+        raise AssertionError("Failed to run a simple load with DataLoader") from e
 
 
 if __name__ == "__main__":
