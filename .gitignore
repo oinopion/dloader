@@ -1,5 +1,7 @@
 # Python
 dist/
+build/
+tmp/
 __pycache__/
 *.py[cod]
 .pytest_cache/
