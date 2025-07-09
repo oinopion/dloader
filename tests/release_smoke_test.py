@@ -20,7 +20,7 @@ def test_can_import_dloader() -> None:
         raise AssertionError("Could not import dloader package") from e
 
     try:
-        from dloader import DataLoader  # type: ignore # noqa: F401
+        from dloader.dataloader import DataLoader  # type: ignore # noqa: F401
     except ImportError as e:
         raise AssertionError("Could not import DataLoader class from dloader package") from e
 
@@ -31,7 +31,7 @@ def test_run_simple_load() -> None:
         return [f"ok-{key}" for key in keys]
 
     async def run_load() -> None:
-        from dloader import DataLoader
+        from dloader.dataloader import DataLoader
 
         loader = DataLoader(load_fn)
 
