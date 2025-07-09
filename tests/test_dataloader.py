@@ -7,7 +7,7 @@ import pytest
 from cachetools import Cache
 from testing_tools import InstrumentedLoad
 
-from dloader import DataLoader
+from dloader.dataloader import DataLoader
 
 
 async def test_basic_serial_loading_returns_loaded_results() -> None:

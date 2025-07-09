@@ -2,10 +2,8 @@ import asyncio
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-from dloader import LoadFunction
 
-
-class InstrumentedLoad(LoadFunction[int, str]):
+class InstrumentedLoad:
     """Test helper that records batch calls and controls execution timing."""
 
     batches: list[list[int]]
@@ -25,7 +23,7 @@ class InstrumentedLoad(LoadFunction[int, str]):
     ) -> None:
         """
         :param db: Mock database mapping keys to values or exceptions. Defaults to {1: "data-1", 2: "data-2", ...}
-        :param proceed_signal: If False, load function will block until proceed_signal.set() is called
+        :param proceed_immediately: If False, load function will block until proceed_signal.set() is called
         :param side_effect: Optional function called with keys; if it returns an exception, that exception is raised
         """
         self.db = db if db is not None else {i: f"data-{i}" for i in range(1, 10)}
@@ -45,5 +43,4 @@ class InstrumentedLoad(LoadFunction[int, str]):
             result = self.side_effect(list(keys))
             if isinstance(result, Exception):
                 raise result
-
         return [self.db[key] for key in keys]
