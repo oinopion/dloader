@@ -1,5 +1,6 @@
 # Python
 dist/
+docs/
 build/
 tmp/
 __pycache__/

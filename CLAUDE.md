@@ -69,6 +69,12 @@ Key points:
 - Docstrings need to be concise and state only things that are not obvious from the symbol name or signature
 - No bullet points in docs unless explicitly asked
 
+## GitHub Actions style
+
+- Ensure that each step has a human readable name that's an imperative sentence, like "Install dependencies" or "Run
+  tests"
+- Ensure that actions have consistent style (including whitespace), properties are in the same order, etc.
+
 ## Commit Guidelines
 
 - When committing, commit description should contain the reason for the change, avoid just describing the change

@@ -20,62 +20,43 @@ class DataLoader(Generic[Key, Result]):
     """
     Batches and caches asynchronous data loading operations.
 
-    Solves the N+1 query problem by collecting multiple load requests and executing them
-    as a single batch operation. Deduplicates requests within a batch and caches results
-    to avoid redundant loads.
+    This is an asyncio-native implementation of a DataLoader pattern. It allows you to batch concurrent, asynchronous
+    load requests without having to explicitly synchronize them. Additionally, it will deduplicate load requests for the
+    same key, ensuring that each key is only loaded once and results are cached.
 
-    The load function receives a sequence of keys and must return results in the same
-    order. Results can be values or Exception instances which are propagated to the
-    appropriate futures.
+    You need to provide a load function that receives a sequence of keys and must return a sequence of results in the
+    same order as keys. The results can be values or `Exception` instances which are propagated to the appropriate
+    futures.
 
-    All asyncio tasks are tracked internally and cleaned up during shutdown, preventing
-    task leaks. Use as an async context manager for automatic cleanup or call shutdown()
-    manually.
+    All asyncio tasks are tracked internally and cleaned up during shutdown, preventing task leaks. Use as an async
+    context manager for automatic cleanup or call `shutdown()` manually.
 
-    Example usage
-    -------------
+    ## Example usage
 
-    >>> _batches = list[Sequence[int]]()
     >>> async def load_users(user_ids: Sequence[int]) -> Sequence[str]:
-    ...     _batches.append(user_ids)
+    ...     await asyncio.sleep(0.1)  # do something useful
     ...     return [f"user_{id}" for id in user_ids]
-    >>>
+    ...
     >>> async def example():
     ...     async with DataLoader(load_users) as loader:
+    ...         # load_users will be called once with [1, 2, 3]
     ...         results = await asyncio.gather(
     ...             loader.load(1),
     ...             loader.load(2),
     ...             loader.load_many([2, 3]),
     ...         )
-    ...         return results
-    >>>
+    ...         cached_user = await loader.load(1)  # This will return 'user_1' from cache
+    ...         return results + [cached_user]
+    ...
     >>> asyncio.run(example())
-    ['user_1', 'user_2', ['user_2', 'user_3']]
-    >>> _batches # The load function was called only once with deduplicated keys
-    [[1, 2, 3]]
+    ['user_1', 'user_2', ['user_2', 'user_3'], 'user_1']
 
-    Caching example:
+    ## How it works
 
-    >>> _batches = list[Sequence[int]]()
-    >>> async def caching_example():
-    ...     async with DataLoader(load_users) as loader:
-    ...         user_1 = await loader.load(1)
-    ...         user_1_again = await loader.load(1)
-    ...         return [user_1, user_1_again]
-    >>>
-    >>> asyncio.run(caching_example())
-    ['user_1', 'user_1']
-    >>> _batches
-    [[1]]
-
-    How it works
-    ------------
-
-    When you call load() or load_many(), the DataLoader doesn't immediately execute the
-    load function. Instead, it schedules a task for the next event loop iteration,
-    collects keys, and returns a Future immediately. If other load calls are made while
-    the task is pending, their keys are collected and batched together. This works best
-    when load calls are made in parallel through asyncio.gather() or tasks.
+    When you call `load()` or `load_many()`, the `DataLoader` doesn't immediately execute the load function. Instead, it
+    schedules a task for the next event loop iteration, collects keys, and returns a `Future` immediately. If other load
+    calls are made while the task is pending, their keys are collected and batched together. This works best when load
+    calls are made in parallel through `asyncio.gather()` or tasks.
     """
 
     # Invariants maintained between calls and await points:
@@ -84,8 +65,11 @@ class DataLoader(Generic[Key, Result]):
     # - Running load tasks never have overlapping keys
 
     load_fn: LoadFunction[Key, Result]
+    """Load function that was passed to the `DataLoader`"""
     max_batch_size: int | None
+    """Maximum number of keys the `DataLoader` will load per batch"""
     cache: bool
+    """Whether the `DataLoader` is caching successful results"""
 
     def __init__(
         self,
@@ -99,7 +83,7 @@ class DataLoader(Generic[Key, Result]):
         Initialize a DataLoader instance.
 
         :param load_fn: Async function that accepts a sequence of keys and returns results
-            in the same order. Results can be values or Exception instances.
+            in the same order. Results can be values or `Exception` instances.
         :param max_batch_size: Maximum number of keys per batch. Default is None (unlimited).
         :param cache: Whether to cache successful results. Default is True.
         :param loop: Event loop to use. Only needed when calling load() outside an async context.
@@ -122,6 +106,9 @@ class DataLoader(Generic[Key, Result]):
         self._entered: bool = False
 
     def load(self, key: Key) -> asyncio.Future[Result]:
+        """
+        Load data for a single key.
+        """
         if key in self.cache_map:
             future = self._loop.create_future()
             future.set_result(self.cache_map[key])
@@ -138,26 +125,52 @@ class DataLoader(Generic[Key, Result]):
         return future
 
     def load_many(self, keys: Iterable[Key]) -> asyncio.Future[list[Result]]:
+        """
+        Load data for many keys.
+        """
         return asyncio.gather(*(self.load(key) for key in keys))
 
     def clear(self, key: Key) -> None:
+        """
+        Clear a single key from the cache.
+        """
         self.cache_map.pop(key, None)
 
     def clear_many(self, keys: Iterable[Key]) -> None:
+        """
+        Clear many keys from the cache.
+        """
         for key in keys:
             self.cache_map.pop(key, None)
 
     def clear_all(self) -> None:
+        """
+        Completely clear the cache.
+        """
         self.cache_map.clear()
 
     def prime(self, key: Key, value: Result) -> None:
+        """
+        Put the value in the cache under the given key.
+        """
         self.cache_map[key] = value
 
     def prime_many(self, data: Mapping[Key, Result]) -> None:
+        """
+        Populate the cache with given key-result mapping.
+        """
         for key, value in data.items():
             self.cache_map[key] = value
 
     async def shutdown(self) -> ExceptionGroup | None:
+        """
+        Perform a safe shutdown of the DataLoader.
+
+        All pending futures will be cancelled. All pending and running tasks will be cancelled and awaited. All
+        exceptions raised by the tasks will be returned as an `ExceptionGroup`. If no exceptions have been raised, this
+        method returns `None`.
+        """
+
         cancelled_tasks: list[asyncio.Task[None]] = []
 
         if self._scheduled_load_task is not None and not self._scheduled_load_task.done():
@@ -263,6 +276,7 @@ class DataLoader(Generic[Key, Result]):
     async def __aenter__(self) -> Self:
         if self._entered:
             raise RuntimeError("DataLoader instance already entered")
+
         self._entered = True
 
         if self._maybe_loop is None:
