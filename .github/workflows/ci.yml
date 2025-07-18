@@ -20,7 +20,8 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -36,21 +37,23 @@ jobs:
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
-        if: always()
         with:
           name: test-results-${{ matrix.os }}-${{ matrix.python-version }}
           path: junit/test-results-*.xml
-
-      - name: Test Summary
-        uses: test-summary/action@v2
         if: always()
+
+      - name: Generate test summary
+        uses: test-summary/action@v2
         with:
           paths: junit/test-results-*.xml
+        if: always()
 
   lint:
+    name: Lint and typecheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -71,9 +74,11 @@ jobs:
         run: uv run pyright
 
   build:
+    name: Build and verify package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6

@@ -23,11 +23,15 @@ build: clean
     uv build
 
 clean:
-    rm -rf dist
-    rm -rf .pytest_cache
-    rm -rf __pycache__
+    rm -rf dist docs
     find . -type d -name "__pycache__" -exec rm -rf {} +
     find . -type f -name "*.pyc" -delete
+
+docs-serve:
+    uv run pdoc dloader
+
+docs-build:
+    uv run pdoc dloader --output-directory docs/
 
 release:
     #!/usr/bin/env bash

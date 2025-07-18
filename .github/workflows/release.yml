@@ -5,6 +5,10 @@ on:
     tags:
       - v*
 
+env:
+  PYTHONUNBUFFERED: "1"
+  FORCE_COLOR: "1"
+
 jobs:
   pypi:
     name: Publish to PyPI
@@ -14,13 +18,23 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
+          enable-cache: true
           python-version: "3.11"
-      - run: uv build
-      - name: Smoke test (wheel)
+
+      - name: Build package
+        run: uv build
+
+      - name: Run smoke test (wheel)
         run: uv run --isolated --no-project -p 3.11 --with dist/*.whl tests/release_smoke_test.py
-      - name: Smoke test (source distribution)
+
+      - name: Run smoke test (source distribution)
         run: uv run --isolated --no-project -p 3.11 --with dist/*.tar.gz tests/release_smoke_test.py
-      - run: uv publish --trusted-publishing always
+
+      - name: Publish package to PyPI
+        run: uv publish --trusted-publishing always
