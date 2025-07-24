@@ -33,10 +33,13 @@ docs-serve:
 docs-build:
     uv run pdoc dloader --output-directory docs/
 
+bump-version:
+    uv run bump-my-version bump patch
+
 release:
     #!/usr/bin/env bash
     set -euo pipefail
-    VERSION=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+    VERSION=$(uv run bump-my-version show --format json | jq -r '.current_version')
     echo "Creating release for version: v$VERSION"
     gh release create "v$VERSION" \
         --title "v$VERSION" \

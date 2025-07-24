@@ -1,6 +1,6 @@
 [project]
 name = "dloader"
-version = "0.1.2"
+version = "2025.7"
 description = "DataLoader implementation for Python asyncio"
 authors = [{ name = "Tomek Paczkowski", email = "tomek@hauru.eu" }]
 readme = "README.md"
@@ -27,8 +27,12 @@ dev = [
     "pytest>=8.4.1",
     "ruff>=0.12.1",
     "uvloop>=0.21.0; sys_platform != 'win32'",
+    "bump-my-version>=1.2.1",
 ]
 
+
+[tool.hatch.version]
+path = "src/dloader/__init__.py"
 
 [tool.pytest.ini_options]
 addopts = ["--import-mode=importlib", "--doctest-modules"]
@@ -66,3 +70,15 @@ select = [
 
 [tool.ruff.lint.isort]
 known-first-party = ["dloader"]
+
+
+[tool.bumpversion]
+parse = "(?P<release>[2-9][0-9]{3}\\.\\d+)(\\.(?P<patch>\\d+))?"
+serialize = ["{release}.{patch}", "{release}"]
+
+[tool.bumpversion.parts.release]
+calver_format = "{YYYY}.{MM}"
+
+
+[[tool.bumpversion.files]]
+filename = "src/dloader/__init__.py"

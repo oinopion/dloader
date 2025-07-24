@@ -44,6 +44,10 @@ async with DataLoader(batch_load_users) as user_loader:
     )
 ```
 
+## Versioning
+
+This project follows CalVer. Expect couple of release per year with very minor changes.
+
 ## License
 
 MIT License - see [LICENSE](./LICENSE) file for details.
