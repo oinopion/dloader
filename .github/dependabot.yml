@@ -11,5 +11,5 @@ updates:
     schedule:
       interval: "monthly"
     groups:
-      dev-dependencies:
+      dev:
         dependency-type: "development"
