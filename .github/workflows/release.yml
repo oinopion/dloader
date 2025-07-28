@@ -9,6 +9,9 @@ env:
   PYTHONUNBUFFERED: "1"
   FORCE_COLOR: "1"
 
+permissions:
+  contents: read
+
 jobs:
   pypi:
     name: Publish to PyPI

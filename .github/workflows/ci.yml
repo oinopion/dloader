@@ -9,10 +9,15 @@ env:
   PYTHONUNBUFFERED: "1"
   FORCE_COLOR: "1"
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      checks: write
     strategy:
       fail-fast: false
       matrix:
