@@ -1,6 +1,10 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", ":semanticCommitsDisabled"],
+  "extends": [
+    "config:recommended",
+    ":semanticCommitsDisabled",
+    ":disableDependencyDashboard"
+  ],
   "rangeStrategy": "auto",
   "schedule": ["on the first day of the month"],
   "ignorePaths": [".python-version"],
