@@ -1,0 +1,31 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommitsDisabled"],
+  "rangeStrategy": "auto",
+  "schedule": ["on the first day of the month"],
+  "ignorePaths": [".python-version"],
+  "packageRules": [
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "matchManagers": ["pep621"],
+      "matchDepTypes": ["dependencies"],
+      "groupName": "Python production dependencies"
+    },
+    {
+      "matchManagers": ["pep621"],
+      "matchDepTypes": [
+        "dev-dependencies",
+        "optional-dependencies",
+        "dependency-groups"
+      ],
+      "groupName": "Python development dependencies"
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["on the first day of the month"]
+  }
+}
