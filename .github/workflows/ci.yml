@@ -41,7 +41,7 @@ jobs:
         run: uv run pytest tests/ -v --junit-xml=junit/test-results-${{ matrix.os }}-${{ matrix.python-version }}.xml
 
       - name: Upload test results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ matrix.os }}-${{ matrix.python-version }}
           path: junit/test-results-*.xml
@@ -100,7 +100,7 @@ jobs:
           uv run python -c "import dloader; print(f'dloader imported successfully')"
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
