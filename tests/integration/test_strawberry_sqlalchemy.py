@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import AsyncGenerator, AsyncIterator, Generator, Sequence
+from collections.abc import AsyncGenerator, Generator, Sequence
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
@@ -243,7 +243,7 @@ class Query:
 async def create_graphql_context(
     session_factory: AsyncSessionMaker,
     use_error_user_loader: bool = False,
-) -> AsyncIterator[GraphQLContext]:
+) -> AsyncGenerator[GraphQLContext, None]:
     async with session_factory() as session:
         organization_loader = DataLoader[int, Organization | None](load_fn=lambda ids: load_organizations(session, ids))
         projects_by_org_loader = DataLoader[int, list[Project]](load_fn=lambda ids: load_projects_by_org(session, ids))
