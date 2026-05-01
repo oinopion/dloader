@@ -11,7 +11,8 @@
   "packageRules": [
     {
       "matchManagers": ["github-actions"],
-      "groupName": "GitHub Actions"
+      "groupName": "GitHub Actions",
+      "pinDigests": true
     },
     {
       "matchManagers": ["pep621"],
