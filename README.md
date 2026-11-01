@@ -28,11 +28,13 @@ You can find documentation at: https://oinopion.github.io/dloader
 import asyncio
 from dloader import DataLoader
 
+
 # Define a batch loading function
 async def batch_load_users(user_ids):
     # Fetch multiple users at once (e.g., from a database)
     users = await db_client.get_many(User, user_ids)
     return users
+
 
 # Create a DataLoader instance
 async with DataLoader(batch_load_users) as user_loader:
